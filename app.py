@@ -1,8 +1,6 @@
 import streamlit as st
 import numpy as np
 import re
-from PIL import Image
-import pytesseract
 import pdfplumber
 
 from sklearn.datasets import load_breast_cancer
@@ -44,6 +42,10 @@ h1, h2, h3 {
     border: none;
 }
 
+.stButton > button:hover {
+    background-color: #ff2e2e;
+}
+
 .result-box {
     padding: 20px;
     border-radius: 12px;
@@ -62,8 +64,29 @@ h1, h2, h3 {
 st.title("🩺 Breast Cancer Prediction System")
 
 st.write("""
-Upload a breast cancer report PDF.
-The system automatically extracts values using OCR and predicts the result.
+Upload a breast cancer diagnostic report PDF.
+The system automatically extracts feature values and predicts whether the tumor is Benign or Malignant.
+""")
+
+# -----------------------------
+# SIDEBAR
+# -----------------------------
+st.sidebar.title("About Project")
+
+st.sidebar.write("""
+### AI Healthcare System
+
+This application uses Machine Learning to classify breast cancer tumors.
+
+### Model Used
+- Logistic Regression
+
+### Features
+- PDF Upload
+- Automatic Value Extraction
+- AI Prediction
+- Confidence Score
+- Professional Dashboard
 """)
 
 # -----------------------------
@@ -113,46 +136,44 @@ if uploaded_file is not None:
 
             for page in pdf.pages:
 
-                # Try normal extraction
                 extracted = page.extract_text()
 
                 if extracted:
                     text += extracted + " "
 
-                # OCR extraction from image
-                page_image = page.to_image(resolution=300)
-
-                pil_image = page_image.original
-
-                ocr_text = pytesseract.image_to_string(pil_image)
-
-                text += ocr_text + " "
-
         # -----------------------------
-        # DEBUG TEXT
+        # SHOW EXTRACTED TEXT
         # -----------------------------
         st.subheader("Extracted Text")
 
-        st.text_area("PDF OCR Output", text, height=300)
+        st.text_area("PDF Output", text, height=350)
 
         # -----------------------------
-        # EXTRACT DECIMAL NUMBERS
+        # CLEAN TEXT
         # -----------------------------
-        numbers = re.findall(r"\d+\.\d+", text)
+        text = text.replace(",", ".")
 
-        all_values = [float(num) for num in numbers]
+        # -----------------------------
+        # EXTRACT NUMBERS
+        # -----------------------------
+        numbers = re.findall(r"\d+\.\d+|\d+", text)
 
-        filtered_values = []
+        values = []
 
-        for value in all_values:
+        for num in numbers:
 
-            if value > 10000:
+            value = float(num)
+
+            # Ignore unrealistic large values
+            if value > 3000:
                 continue
 
-            filtered_values.append(value)
+            values.append(value)
 
-        # Take first 30 values
-        input_data = filtered_values[:30]
+        # -----------------------------
+        # TAKE FIRST 30 VALUES
+        # -----------------------------
+        input_data = values[:30]
 
         # -----------------------------
         # SHOW VALUES

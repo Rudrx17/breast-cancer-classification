@@ -18,23 +18,30 @@ X_train, X_test, Y_train, Y_test = train_test_split(
 model = LogisticRegression(max_iter=5000)
 model.fit(X_train, Y_train)
 
-# App title
-st.title("Breast Cancer Prediction App")
+# Title
+st.title("Breast Cancer Prediction System")
 
-st.write("Enter the values below to predict whether the tumor is Benign or Malignant.")
+st.write("Paste 30 comma-separated values for prediction.")
 
-# User input
-input_data = []
+# Single text input
+input_text = st.text_area("Enter Input Values")
 
-for feature in data.feature_names:
-    value = st.number_input(feature)
-    input_data.append(value)
-
-# Prediction button
 if st.button("Predict"):
-    prediction = model.predict([input_data])
 
-    if prediction[0] == 0:
-        st.error("Malignant Tumor Detected")
-    else:
-        st.success("Benign Tumor Detected")
+    try:
+        # Convert input into float list
+        input_data = [float(x) for x in input_text.split(",")]
+
+        # Ensure 30 values
+        if len(input_data) != 30:
+            st.error("Please enter exactly 30 values.")
+        else:
+            prediction = model.predict([input_data])
+
+            if prediction[0] == 0:
+                st.error("Malignant Tumor Detected")
+            else:
+                st.success("Benign Tumor Detected")
+
+    except:
+        st.error("Invalid input format.")

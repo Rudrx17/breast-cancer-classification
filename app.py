@@ -1,6 +1,13 @@
 import streamlit as st
 import numpy as np
-import pandas as pd
+import re
+
+try:
+    import pdfplumber
+    PDF_SUPPORT = True
+except:
+    PDF_SUPPORT = False
+
 from sklearn.datasets import load_breast_cancer
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
@@ -61,10 +68,31 @@ h1, h2, h3 {
 # -----------------------------
 st.title("🩺 Breast Cancer Prediction System")
 
-st.write(
-    "Upload a medical report file containing 30 numerical values "
-    "to predict whether the tumor is Benign or Malignant."
-)
+st.write("""
+Upload a breast cancer medical report in PDF format.
+The system will analyze the report and predict whether the tumor is Benign or Malignant.
+""")
+
+# -----------------------------
+# SIDEBAR
+# -----------------------------
+st.sidebar.title("About Project")
+
+st.sidebar.write("""
+### AI Healthcare System
+
+This application uses Machine Learning to classify breast cancer tumors.
+
+### Model Used
+- Logistic Regression
+
+### Features
+- PDF Upload
+- Automatic Value Extraction
+- AI Prediction
+- Confidence Score
+- Professional Dashboard
+""")
 
 # -----------------------------
 # LOAD DATASET
@@ -89,77 +117,62 @@ model = LogisticRegression(max_iter=5000)
 model.fit(X_train, Y_train)
 
 # -----------------------------
-# SIDEBAR
-# -----------------------------
-st.sidebar.title("About Project")
-
-st.sidebar.write("""
-This AI-powered system predicts breast cancer using Machine Learning.
-
-### Model Used
-- Logistic Regression
-
-### Dataset
-- Breast Cancer Wisconsin Dataset
-
-### Features
-- File Upload
-- Real-Time Prediction
-- Confidence Score
-- Interactive UI
-""")
-
-# -----------------------------
 # FILE UPLOADER
 # -----------------------------
 uploaded_file = st.file_uploader(
-    "📂 Upload Report File",
-    type=["txt", "csv"]
+    "📄 Upload PDF Report",
+    type=["pdf"]
 )
 
 input_data = None
 
 # -----------------------------
-# PROCESS TXT FILE
+# PROCESS PDF
 # -----------------------------
 if uploaded_file is not None:
 
-    st.success("File Uploaded Successfully ✅")
+    st.success("PDF Uploaded Successfully ✅")
 
-    try:
+    if PDF_SUPPORT:
 
-        # TXT FILE
-        if uploaded_file.type == "text/plain":
+        try:
 
-            content = uploaded_file.read().decode("utf-8")
+            text = ""
 
-            values = content.split(",")
+            with pdfplumber.open(uploaded_file) as pdf:
 
-            input_data = [float(x.strip()) for x in values]
+                for page in pdf.pages:
 
-        # CSV FILE
-        elif uploaded_file.type == "text/csv":
+                    extracted = page.extract_text()
 
-            df = pd.read_csv(uploaded_file)
+                    if extracted:
+                        text += extracted + " "
 
-            input_data = df.values.flatten().tolist()
+            # Extract numbers from PDF text
+            numbers = re.findall(r"[-+]?\d*\.\d+|\d+", text)
 
-        st.subheader("Extracted Values")
+            input_data = [float(num) for num in numbers[:30]]
 
-        st.write(input_data)
+            st.subheader("Extracted Values")
 
-    except:
+            st.write(input_data)
 
-        st.error("Could not read uploaded file.")
+        except:
+
+            st.error("Could not process PDF file.")
+
+    else:
+
+        st.error("PDF support library not installed.")
 
 # -----------------------------
-# PREDICTION BUTTON
+# PREDICTION
 # -----------------------------
 if st.button("🔍 Analyze Report"):
 
     if input_data is None:
 
-        st.warning("Please upload a valid report file.")
+        st.warning("Please upload a valid PDF report.")
 
     else:
 
@@ -168,7 +181,7 @@ if st.button("🔍 Analyze Report"):
             if len(input_data) != 30:
 
                 st.error(
-                    "The uploaded report must contain exactly 30 numerical values."
+                    "Could not extract exactly 30 numerical values from the PDF."
                 )
 
             else:
@@ -203,4 +216,4 @@ if st.button("🔍 Analyze Report"):
 
         except:
 
-            st.error("Prediction failed. Please check your file format.")
+            st.error("Prediction failed.")

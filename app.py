@@ -2,6 +2,9 @@ import streamlit as st
 import numpy as np
 import re
 import pdfplumber
+import pytesseract
+
+from PIL import Image
 
 from sklearn.datasets import load_breast_cancer
 from sklearn.model_selection import train_test_split
@@ -17,46 +20,9 @@ st.set_page_config(
 )
 
 # -----------------------------
-# CUSTOM CSS
+# TESSERACT PATH
 # -----------------------------
-st.markdown("""
-<style>
-
-.stApp {
-    background-color: #0E1117;
-    color: white;
-}
-
-h1, h2, h3 {
-    color: white;
-}
-
-.stButton > button {
-    width: 100%;
-    height: 3em;
-    border-radius: 12px;
-    font-size: 18px;
-    font-weight: bold;
-    background-color: #ff4b4b;
-    color: white;
-    border: none;
-}
-
-.stButton > button:hover {
-    background-color: #ff2e2e;
-}
-
-.result-box {
-    padding: 20px;
-    border-radius: 12px;
-    text-align: center;
-    font-size: 28px;
-    font-weight: bold;
-    color: white;
-}
-
-</style>
-""", unsafe_allow_html=True)
+pytesseract.pytesseract.tesseract_cmd = "/usr/bin/tesseract"
 
 # -----------------------------
 # TITLE
@@ -64,29 +30,8 @@ h1, h2, h3 {
 st.title("🩺 Breast Cancer Prediction System")
 
 st.write("""
-Upload a breast cancer diagnostic report PDF.
-The system automatically extracts feature values and predicts whether the tumor is Benign or Malignant.
-""")
-
-# -----------------------------
-# SIDEBAR
-# -----------------------------
-st.sidebar.title("About Project")
-
-st.sidebar.write("""
-### AI Healthcare System
-
-This application uses Machine Learning to classify breast cancer tumors.
-
-### Model Used
-- Logistic Regression
-
-### Features
-- PDF Upload
-- Automatic Value Extraction
-- AI Prediction
-- Confidence Score
-- Professional Dashboard
+Upload a breast cancer report PDF.
+The system extracts values and predicts whether the tumor is Benign or Malignant.
 """)
 
 # -----------------------------
@@ -126,27 +71,26 @@ input_data = None
 # -----------------------------
 if uploaded_file is not None:
 
-    st.success("PDF Uploaded Successfully ✅")
-
     try:
-
-        text = ""
 
         with pdfplumber.open(uploaded_file) as pdf:
 
-            for page in pdf.pages:
+            first_page = pdf.pages[0]
 
-                extracted = page.extract_text()
+            # Convert PDF page to image
+            page_image = first_page.to_image(resolution=300)
 
-                if extracted:
-                    text += extracted + " "
+            pil_image = page_image.original
+
+            # OCR
+            text = pytesseract.image_to_string(pil_image)
 
         # -----------------------------
-        # SHOW EXTRACTED TEXT
+        # SHOW OCR TEXT
         # -----------------------------
         st.subheader("Extracted Text")
 
-        st.text_area("PDF Output", text, height=350)
+        st.text_area("OCR Output", text, height=300)
 
         # -----------------------------
         # CLEAN TEXT
@@ -164,15 +108,13 @@ if uploaded_file is not None:
 
             value = float(num)
 
-            # Ignore unrealistic large values
+            # Ignore huge values
             if value > 3000:
                 continue
 
             values.append(value)
 
-        # -----------------------------
-        # TAKE FIRST 30 VALUES
-        # -----------------------------
+        # Take first 30 values
         input_data = values[:30]
 
         # -----------------------------
@@ -186,7 +128,7 @@ if uploaded_file is not None:
 
     except Exception as e:
 
-        st.error(f"Could not process PDF file: {e}")
+        st.error(f"Error processing PDF: {e}")
 
 # -----------------------------
 # PREDICTION
@@ -199,44 +141,28 @@ if st.button("🔍 Analyze Report"):
 
     else:
 
-        try:
+        if len(input_data) != 30:
 
-            if len(input_data) != 30:
+            st.error(
+                "Could not extract exactly 30 numerical values."
+            )
 
-                st.error(
-                    "Could not extract exactly 30 numerical values from the PDF."
-                )
+        else:
+
+            prediction = model.predict([input_data])
+
+            probability = model.predict_proba([input_data])
+
+            confidence = np.max(probability) * 100
+
+            st.subheader("Prediction Result")
+
+            if prediction[0] == 0:
+
+                st.error("Malignant Tumor Detected")
 
             else:
 
-                prediction = model.predict([input_data])
+                st.success("Benign Tumor Detected")
 
-                probability = model.predict_proba([input_data])
-
-                confidence = np.max(probability) * 100
-
-                st.subheader("Prediction Result")
-
-                # MALIGNANT
-                if prediction[0] == 0:
-
-                    st.markdown(f"""
-                    <div class="result-box" style="background-color:#ff4b4b;">
-                        Malignant Tumor Detected
-                    </div>
-                    """, unsafe_allow_html=True)
-
-                # BENIGN
-                else:
-
-                    st.markdown(f"""
-                    <div class="result-box" style="background-color:#00c853;">
-                        Benign Tumor Detected
-                    </div>
-                    """, unsafe_allow_html=True)
-
-                st.info(f"Confidence Score: {confidence:.2f}%")
-
-        except Exception as e:
-
-            st.error(f"Prediction failed: {e}")
+            st.info(f"Confidence Score: {confidence:.2f}%")

@@ -3,6 +3,4 @@ scikit-learn
 numpy
 pandas
 pdfplumber
-pytesseract
-Pillowtesseract-ocr
-poppler-utils
+Pillow

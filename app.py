@@ -1,7 +1,6 @@
 import streamlit as st
 import numpy as np
 import pandas as pd
-import pdfplumber
 from sklearn.datasets import load_breast_cancer
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
@@ -20,26 +19,40 @@ st.set_page_config(
 # -----------------------------
 st.markdown("""
 <style>
-.main {
+
+.stApp {
     background-color: #0E1117;
     color: white;
 }
 
-.stButton>button {
+h1, h2, h3 {
+    color: white;
+}
+
+.stButton > button {
     width: 100%;
-    border-radius: 10px;
     height: 3em;
+    border-radius: 12px;
     font-size: 18px;
     font-weight: bold;
+    background-color: #ff4b4b;
+    color: white;
+    border: none;
+}
+
+.stButton > button:hover {
+    background-color: #ff2e2e;
 }
 
 .result-box {
     padding: 20px;
-    border-radius: 10px;
+    border-radius: 12px;
     text-align: center;
-    font-size: 24px;
+    font-size: 28px;
     font-weight: bold;
+    color: white;
 }
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -47,7 +60,11 @@ st.markdown("""
 # TITLE
 # -----------------------------
 st.title("🩺 Breast Cancer Prediction System")
-st.write("Upload a report or paste 30 comma-separated values to predict whether the tumor is Benign or Malignant.")
+
+st.write(
+    "Upload a medical report file containing 30 numerical values "
+    "to predict whether the tumor is Benign or Malignant."
+)
 
 # -----------------------------
 # LOAD DATASET
@@ -61,112 +78,129 @@ Y = data.target
 # TRAIN MODEL
 # -----------------------------
 X_train, X_test, Y_train, Y_test = train_test_split(
-    X, Y, test_size=0.2, random_state=2
+    X,
+    Y,
+    test_size=0.2,
+    random_state=2
 )
 
 model = LogisticRegression(max_iter=5000)
+
 model.fit(X_train, Y_train)
 
 # -----------------------------
 # SIDEBAR
 # -----------------------------
-st.sidebar.header("About")
+st.sidebar.title("About Project")
+
 st.sidebar.write("""
 This AI-powered system predicts breast cancer using Machine Learning.
 
-Model Used:
+### Model Used
 - Logistic Regression
 
-Dataset:
+### Dataset
 - Breast Cancer Wisconsin Dataset
+
+### Features
+- File Upload
+- Real-Time Prediction
+- Confidence Score
+- Interactive UI
 """)
 
 # -----------------------------
-# FILE UPLOAD
+# FILE UPLOADER
 # -----------------------------
 uploaded_file = st.file_uploader(
-    "📂 Upload Report",
-    type=["txt", "csv", "pdf"]
+    "📂 Upload Report File",
+    type=["txt", "csv"]
 )
 
-input_text = ""
+input_data = None
 
 # -----------------------------
-# READ TXT FILE
+# PROCESS TXT FILE
 # -----------------------------
 if uploaded_file is not None:
 
-    st.success("File uploaded successfully!")
-
-    if uploaded_file.type == "text/plain":
-        input_text = uploaded_file.read().decode("utf-8")
-
-    elif uploaded_file.type == "text/csv":
-        df = pd.read_csv(uploaded_file)
-        input_text = ",".join(map(str, df.values.flatten()))
-
-    elif uploaded_file.type == "application/pdf":
-
-        text = ""
-
-        with pdfplumber.open(uploaded_file) as pdf:
-            for page in pdf.pages:
-                extracted = page.extract_text()
-
-                if extracted:
-                    text += extracted
-
-        st.subheader("Extracted Report Text")
-        st.text_area("PDF Content", text, height=200)
-
-# -----------------------------
-# MANUAL INPUT
-# -----------------------------
-manual_input = st.text_area(
-    "✍️ Paste 30 Comma-Separated Values",
-    value=input_text,
-    height=150
-)
-
-# -----------------------------
-# PREDICTION
-# -----------------------------
-if st.button("🔍 Predict"):
+    st.success("File Uploaded Successfully ✅")
 
     try:
 
-        input_data = [float(x.strip()) for x in manual_input.split(",")]
+        # TXT FILE
+        if uploaded_file.type == "text/plain":
 
-        if len(input_data) != 30:
-            st.error("Please enter exactly 30 numerical values.")
+            content = uploaded_file.read().decode("utf-8")
 
-        else:
+            values = content.split(",")
 
-            prediction = model.predict([input_data])
+            input_data = [float(x.strip()) for x in values]
 
-            probability = model.predict_proba([input_data])
+        # CSV FILE
+        elif uploaded_file.type == "text/csv":
 
-            confidence = np.max(probability) * 100
+            df = pd.read_csv(uploaded_file)
 
-            st.subheader("Prediction Result")
+            input_data = df.values.flatten().tolist()
 
-            if prediction[0] == 0:
+        st.subheader("Extracted Values")
 
-                st.markdown(f"""
-                <div class="result-box" style="background-color:#ff4b4b;">
-                    Malignant Tumor Detected
-                </div>
-                """, unsafe_allow_html=True)
+        st.write(input_data)
+
+    except:
+
+        st.error("Could not read uploaded file.")
+
+# -----------------------------
+# PREDICTION BUTTON
+# -----------------------------
+if st.button("🔍 Analyze Report"):
+
+    if input_data is None:
+
+        st.warning("Please upload a valid report file.")
+
+    else:
+
+        try:
+
+            if len(input_data) != 30:
+
+                st.error(
+                    "The uploaded report must contain exactly 30 numerical values."
+                )
 
             else:
 
-                st.markdown(f"""
-                <div class="result-box" style="background-color:#00c853;">
-                    Benign Tumor Detected
-                </div>
-                """, unsafe_allow_html=True)
+                prediction = model.predict([input_data])
 
-            st.info(f"Confidence Score: {confidence:.2f}%")
+                probability = model.predict_proba([input_data])
 
-    except:
-        st.error("Invalid input format. Please check your values.")
+                confidence = np.max(probability) * 100
+
+                st.subheader("Prediction Result")
+
+                # MALIGNANT
+                if prediction[0] == 0:
+
+                    st.markdown(f"""
+                    <div class="result-box" style="background-color:#ff4b4b;">
+                        Malignant Tumor Detected
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                # BENIGN
+                else:
+
+                    st.markdown(f"""
+                    <div class="result-box" style="background-color:#00c853;">
+                        Benign Tumor Detected
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                st.info(f"Confidence Score: {confidence:.2f}%")
+
+        except:
+
+            st.error("Prediction failed. Please check your file format.")

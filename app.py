@@ -1,12 +1,9 @@
 import streamlit as st
 import numpy as np
 import re
-
-try:
-    import pdfplumber
-    PDF_SUPPORT = True
-except:
-    PDF_SUPPORT = False
+from PIL import Image
+import pytesseract
+import pdfplumber
 
 from sklearn.datasets import load_breast_cancer
 from sklearn.model_selection import train_test_split
@@ -47,10 +44,6 @@ h1, h2, h3 {
     border: none;
 }
 
-.stButton > button:hover {
-    background-color: #ff2e2e;
-}
-
 .result-box {
     padding: 20px;
     border-radius: 12px;
@@ -69,29 +62,8 @@ h1, h2, h3 {
 st.title("🩺 Breast Cancer Prediction System")
 
 st.write("""
-Upload a breast cancer medical report in PDF format.
-The system will automatically extract values and predict whether the tumor is Benign or Malignant.
-""")
-
-# -----------------------------
-# SIDEBAR
-# -----------------------------
-st.sidebar.title("About Project")
-
-st.sidebar.write("""
-### AI Healthcare System
-
-This application uses Machine Learning to classify breast cancer tumors.
-
-### Model Used
-- Logistic Regression
-
-### Features
-- PDF Upload
-- Automatic Value Extraction
-- AI Prediction
-- Confidence Score
-- Professional Dashboard
+Upload a breast cancer report PDF.
+The system automatically extracts values using OCR and predicts the result.
 """)
 
 # -----------------------------
@@ -133,57 +105,67 @@ if uploaded_file is not None:
 
     st.success("PDF Uploaded Successfully ✅")
 
-    if PDF_SUPPORT:
+    try:
 
-        try:
+        text = ""
 
-            text = ""
+        with pdfplumber.open(uploaded_file) as pdf:
 
-            with pdfplumber.open(uploaded_file) as pdf:
+            for page in pdf.pages:
 
-                for page in pdf.pages:
+                # Try normal extraction
+                extracted = page.extract_text()
 
-                    extracted = page.extract_text()
+                if extracted:
+                    text += extracted + " "
 
-                    if extracted:
-                        text += extracted + " "
+                # OCR extraction from image
+                page_image = page.to_image(resolution=300)
 
-            # -----------------------------
-            # EXTRACT NUMBERS
-            # -----------------------------
-            numbers = re.findall(r"\d+\.\d+", text)
+                pil_image = page_image.original
 
-            all_values = [float(num) for num in numbers]
+                ocr_text = pytesseract.image_to_string(pil_image)
 
-            filtered_values = []
+                text += ocr_text + " "
 
-            for value in all_values:
+        # -----------------------------
+        # DEBUG TEXT
+        # -----------------------------
+        st.subheader("Extracted Text")
 
-                # Ignore unrealistic huge numbers
-                if value > 10000:
-                    continue
+        st.text_area("PDF OCR Output", text, height=300)
 
-                filtered_values.append(value)
+        # -----------------------------
+        # EXTRACT DECIMAL NUMBERS
+        # -----------------------------
+        numbers = re.findall(r"\d+\.\d+", text)
 
-            # Take first 30 values
-            input_data = filtered_values[:30]
+        all_values = [float(num) for num in numbers]
 
-            # -----------------------------
-            # DEBUG INFO
-            # -----------------------------
-            st.subheader("Extracted Numerical Values")
+        filtered_values = []
 
-            st.write(input_data)
+        for value in all_values:
 
-            st.write(f"Total Values Extracted: {len(input_data)}")
+            if value > 10000:
+                continue
 
-        except:
+            filtered_values.append(value)
 
-            st.error("Could not process PDF file.")
+        # Take first 30 values
+        input_data = filtered_values[:30]
 
-    else:
+        # -----------------------------
+        # SHOW VALUES
+        # -----------------------------
+        st.subheader("Extracted Numerical Values")
 
-        st.error("PDF support library not installed.")
+        st.write(input_data)
+
+        st.write(f"Total Values Extracted: {len(input_data)}")
+
+    except Exception as e:
+
+        st.error(f"Could not process PDF file: {e}")
 
 # -----------------------------
 # PREDICTION
@@ -234,6 +216,6 @@ if st.button("🔍 Analyze Report"):
 
                 st.info(f"Confidence Score: {confidence:.2f}%")
 
-        except:
+        except Exception as e:
 
-            st.error("Prediction failed.")
+            st.error(f"Prediction failed: {e}")

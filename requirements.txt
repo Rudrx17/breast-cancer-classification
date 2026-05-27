@@ -4,4 +4,5 @@ numpy
 pandas
 pdfplumber
 pytesseract
-Pillow
+Pillowtesseract-ocr
+poppler-utils

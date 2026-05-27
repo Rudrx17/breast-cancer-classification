@@ -70,7 +70,7 @@ st.title("🩺 Breast Cancer Prediction System")
 
 st.write("""
 Upload a breast cancer medical report in PDF format.
-The system will analyze the report and predict whether the tumor is Benign or Malignant.
+The system will automatically extract values and predict whether the tumor is Benign or Malignant.
 """)
 
 # -----------------------------
@@ -148,14 +148,34 @@ if uploaded_file is not None:
                     if extracted:
                         text += extracted + " "
 
-            # Extract numbers from PDF text
-            numbers = re.findall(r"[-+]?\d*\.\d+|\d+", text)
+            # -----------------------------
+            # EXTRACT NUMBERS
+            # -----------------------------
+            numbers = re.findall(r"\d+\.\d+", text)
 
-            input_data = [float(num) for num in numbers[:30]]
+            all_values = [float(num) for num in numbers]
 
-            st.subheader("Extracted Values")
+            filtered_values = []
+
+            for value in all_values:
+
+                # Ignore unrealistic huge numbers
+                if value > 10000:
+                    continue
+
+                filtered_values.append(value)
+
+            # Take first 30 values
+            input_data = filtered_values[:30]
+
+            # -----------------------------
+            # DEBUG INFO
+            # -----------------------------
+            st.subheader("Extracted Numerical Values")
 
             st.write(input_data)
+
+            st.write(f"Total Values Extracted: {len(input_data)}")
 
         except:
 
